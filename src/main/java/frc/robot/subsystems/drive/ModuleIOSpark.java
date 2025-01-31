@@ -46,7 +46,7 @@ public class ModuleIOSpark implements ModuleIO {
   private final SparkMax driveSpark;
   private final SparkMax turnSpark;
   private final RelativeEncoder driveEncoder;
-  private final AnalogEncoder fLEncoder = new AnalogEncoder(7);
+  private final AnalogEncoder turnEncoder;
 
   // Closed loop controllers
   private final SparkClosedLoopController driveController;
@@ -80,6 +80,15 @@ public class ModuleIOSpark implements ModuleIO {
               default -> 0;
             },
             MotorType.kBrushless);
+    turnEncoder =
+        new AnalogEncoder(
+            switch (module) {
+              case 0 -> 1;
+              case 1 -> 2;
+              case 2 -> 3;
+              case 3 -> 4;
+              default -> 0;
+            });
     turnSpark =
         new SparkMax(
             switch (module) {
@@ -169,31 +178,31 @@ public class ModuleIOSpark implements ModuleIO {
     drivePositionQueue =
         SparkOdometryThread.getInstance().registerSignal(driveSpark, driveEncoder::getPosition);
     turnPositionQueue =
-        SparkOdometryThread.getInstance().registerSignal(turnSpark, () -> fLEncoder.get());
+        SparkOdometryThread.getInstance().registerSignal(turnSpark, () -> turnEncoder.get());
   }
 
   @Override
   public void updateInputs(ModuleIOInputs inputs) {
     // Update drive inputs
     sparkStickyFault = false;
-    ifOk(driveSpark, driveEncoder::getPosition, (value) -> inputs.drivePositionRad = value);
-    ifOk(driveSpark, driveEncoder::getVelocity, (value) -> inputs.driveVelocityRadPerSec = value);
+    ifOk(driveSpark, driveEncoder.getPosition(), (value) -> inputs.drivePositionRad = value);
+    ifOk(driveSpark, driveEncoder.getVelocity(), (value) -> inputs.driveVelocityRadPerSec = value);
     ifOk(
         driveSpark,
         new DoubleSupplier[] {driveSpark::getAppliedOutput, driveSpark::getBusVoltage},
         (values) -> inputs.driveAppliedVolts = values[0] * values[1]);
-    ifOk(driveSpark, driveSpark::getOutputCurrent, (value) -> inputs.driveCurrentAmps = value);
+    ifOk(driveSpark, driveSpark.getOutputCurrent(), (value) -> inputs.driveCurrentAmps = value);
     inputs.driveConnected = driveConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update turn inputs
     sparkStickyFault = false;
     ifOk(
         turnSpark,
-        () -> fLEncoder.get(),
+        turnEncoder.get(),
         (value) -> inputs.turnPosition = new Rotation2d(value).minus(zeroRotation));
     ifOk(
         turnSpark,
-        () -> fLEncoder.get(),
+        turnEncoder.get(),
         (value) ->
             inputs.turnVelocityRadPerSec =
                 value); // Turn Encoder returns a rotation while we need a velocityk, figuring this
@@ -202,7 +211,7 @@ public class ModuleIOSpark implements ModuleIO {
         turnSpark,
         new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},
         (values) -> inputs.turnAppliedVolts = values[0] * values[1]);
-    ifOk(turnSpark, turnSpark::getOutputCurrent, (value) -> inputs.turnCurrentAmps = value);
+    ifOk(turnSpark, turnSpark.getOutputCurrent(), (value) -> inputs.turnCurrentAmps = value);
     inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update odometry inputs

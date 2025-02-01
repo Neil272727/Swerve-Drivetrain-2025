@@ -119,8 +119,8 @@ public class ModuleIOSpark implements ModuleIO {
         .closedLoop
         .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
         .pidf(
-            driveKp, 0.0,
-            driveKd, 0.0);
+            driveKp, 0,
+            driveKd, 0);
     driveConfig
         .signals
         .primaryEncoderPositionAlwaysOn(true)
@@ -139,7 +139,7 @@ public class ModuleIOSpark implements ModuleIO {
     tryUntilOk(driveSpark, 5, () -> driveEncoder.setPosition(0.0));
 
     // Configure turn motor
-    var turnConfig = new SparkMaxConfig();
+    SparkMaxConfig turnConfig = new SparkMaxConfig();
     turnConfig
         .inverted(turnInverted)
         .idleMode(IdleMode.kBrake)
@@ -205,8 +205,8 @@ public class ModuleIOSpark implements ModuleIO {
         turnEncoder.get(),
         (value) ->
             inputs.turnVelocityRadPerSec =
-                value); // Turn Encoder returns a rotation while we need a velocityk, figuring this
-    // out NEIL
+                value); // Turn Encoder returns a rotation while we need a velocityk,
+    // figuring this out NEIL
     ifOk(
         turnSpark,
         new DoubleSupplier[] {turnSpark::getAppliedOutput, turnSpark::getBusVoltage},

@@ -13,7 +13,7 @@
 
 package frc.robot.subsystems.drive;
 
-import static frc.robot.subsystems.drive.DriveConstants.*;
+import static frc.robot.Constants.DriveConstants.*;
 import static frc.robot.util.SparkUtil.*;
 
 import com.revrobotics.RelativeEncoder;
@@ -106,7 +106,7 @@ public class ModuleIOSpark implements ModuleIO {
     // Configure drive motor
     var driveConfig = new SparkMaxConfig();
     driveConfig
-        .idleMode(IdleMode.kBrake)
+        .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(driveMotorCurrentLimit)
         .voltageCompensation(12.0);
     driveConfig
@@ -142,20 +142,17 @@ public class ModuleIOSpark implements ModuleIO {
     SparkMaxConfig turnConfig = new SparkMaxConfig();
     turnConfig
         .inverted(turnInverted)
-        .idleMode(IdleMode.kBrake)
+        .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(turnMotorCurrentLimit)
         .voltageCompensation(12.0);
     turnConfig
         .absoluteEncoder
-        .inverted(turnEncoderInverted)
         .positionConversionFactor(turnEncoderPositionFactor)
         .velocityConversionFactor(turnEncoderVelocityFactor)
         .averageDepth(2);
     turnConfig
         .closedLoop
         .feedbackSensor(FeedbackSensor.kAbsoluteEncoder)
-        .positionWrappingEnabled(true)
-        .positionWrappingInputRange(turnPIDMinInput, turnPIDMaxInput)
         .pidf(turnKp, 0.0, turnKd, 0.0);
     turnConfig
         .signals
@@ -178,7 +175,7 @@ public class ModuleIOSpark implements ModuleIO {
     drivePositionQueue =
         SparkOdometryThread.getInstance().registerSignal(driveSpark, driveEncoder::getPosition);
     turnPositionQueue =
-        SparkOdometryThread.getInstance().registerSignal(turnSpark, () -> turnEncoder.get());
+        SparkOdometryThread.getInstance().registerSignal(turnSpark, turnEncoder::get);
   }
 
   @Override
@@ -215,10 +212,9 @@ public class ModuleIOSpark implements ModuleIO {
     inputs.turnConnected = turnConnectedDebounce.calculate(!sparkStickyFault);
 
     // Update odometry inputs
-    inputs.odometryTimestamps =
-        timestampQueue.stream().mapToDouble((Double value) -> value).toArray();
+    inputs.odometryTimestamps = timestampQueue.stream().mapToDouble((value) -> value).toArray();
     inputs.odometryDrivePositionsRad =
-        drivePositionQueue.stream().mapToDouble((Double value) -> value).toArray();
+        drivePositionQueue.stream().mapToDouble((value) -> value).toArray();
     inputs.odometryTurnPositions =
         turnPositionQueue.stream()
             .map((Double value) -> new Rotation2d(value).minus(zeroRotation))
@@ -254,6 +250,6 @@ public class ModuleIOSpark implements ModuleIO {
     double setpoint =
         MathUtil.inputModulus(
             rotation.plus(zeroRotation).getRadians(), turnPIDMinInput, turnPIDMaxInput);
-    turnController.setReference(setpoint, ControlType.kPosition);
+    turnController.setReference(rotation.plus(zeroRotation).getRadians(), ControlType.kPosition);
   }
 }
